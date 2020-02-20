@@ -7,6 +7,7 @@ class CreativeInfo(models.Model):
     ad_url = models.CharField(null=True, max_length=128)
     embed_url = models.TextField(null=True)
     missing = models.BooleanField(null=True)
+    missing_reason = models.CharField(null=True, max_length=64)
     checked = models.BooleanField(default=False, null=False)
 
     class Meta:

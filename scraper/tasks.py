@@ -1,6 +1,6 @@
 from celery import shared_task, app
 from time import sleep
-from .scraper import Scraper
+from .scraper import Scraper, CreativeMissingReason, UnknownMissingReason
 from selenium import webdriver
 from .models import CreativeInfo
 
@@ -49,10 +49,20 @@ def scrape_new_urls():
     creative: CreativeInfo
     for creative in CreativeInfo.objects.filter(checked=False):
         print(f"scraping: {creative=}, {creative.ad_url=}")
-        embed_ad_url = scraper.scrape_url(creative.ad_url)
-        assert embed_ad_url
-        creative.embed_url = embed_ad_url
-        creative.checked = True
-        creative.missing = False
-        creative.save()
+        try:
+            embed_ad_url = scraper.scrape_url(creative.ad_url)
+            assert embed_ad_url
+            creative.embed_url = embed_ad_url
+            creative.checked = True
+            creative.missing = False
+            creative.save()
+        except CreativeMissingReason as reason:
+            print(f"MISSING: reason: {reason.name}, ad_url={creative.ad_url}")
+            creative.missing_reason = reason.value
+            creative.missing = True
+            creative.checked = True
+            creative.save()
+        except UnknownMissingReason as e:
+            raise e
+
         print(f"{creative.ad_url=}, {creative.embed_url=}")
