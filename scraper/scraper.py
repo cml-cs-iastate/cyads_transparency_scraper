@@ -9,6 +9,7 @@ from enum import Enum
 
 class CreativeMissingReason(Enum):
     AD_PREVIEW_UNAVAILABLE = "AD_PREVIEW_UNAVAILABLE"
+    AD_POLICY_VIOLATION = "AD_POLICY_VIOLATION"
 
 
 class AdUrlMissing(Exception):
@@ -19,21 +20,34 @@ class UnknownMissingReason(Exception):
     pass
 
 
+class ScrapeResult:
+    def __init__(self, actual_url=None, missing_reason: CreativeMissingReason=None):
+        self.actual_url = actual_url
+        self.missing = missing_reason is not None
+        self.missing_reason = missing_reason
+
+        if not actual_url and not self.missing:
+            raise ValueError("actual_url must be non-empty if missing is false")
+
+
 class Scraper:
     def __init__(self, driver: webdriver.Chrome):
         self.driver = driver
 
-    def scrape_url(self, url) -> str:
+    def scrape_url(self, url) -> ScrapeResult:
         self.driver.get(url)
         try:
             ad_url = self.locate_ad_url()
-            return ad_url
+            return ScrapeResult(actual_url=ad_url)
         except AdUrlMissing:
-            raise self.missing_reason_known()
+            return ScrapeResult(missing_reason=self.missing_reason_known())
 
     def missing_reason_known(self) -> CreativeMissingReason:
-        if "Ad preview unavailable" in self.driver.find_element_by_class_name("no-renderable-ad").text:
+        no_render_ad = self.driver.find_element_by_class_name("no-renderable-ad")
+        if "Ad preview unavailable" in no_render_ad.text:
             return CreativeMissingReason.AD_PREVIEW_UNAVAILABLE
+        elif "This ad violated Google's Advertising Policies" in no_render_ad.text:
+            return CreativeMissingReason.AD_POLICY_VIOLATION
         else:
             raise UnknownMissingReason()
 
