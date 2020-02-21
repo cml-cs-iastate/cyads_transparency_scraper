@@ -3,6 +3,7 @@ from time import sleep
 from .scraper import Scraper, CreativeMissingReason, UnknownMissingReason, ScrapeResult
 from selenium import webdriver
 from .models import CreativeInfo
+from selenium.common.exceptions import TimeoutException
 
 @shared_task
 def hello():

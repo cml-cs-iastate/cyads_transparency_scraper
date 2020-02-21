@@ -1,5 +1,5 @@
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -10,6 +10,7 @@ from enum import Enum
 class CreativeMissingReason(Enum):
     AD_PREVIEW_UNAVAILABLE = "AD_PREVIEW_UNAVAILABLE"
     AD_POLICY_VIOLATION = "AD_POLICY_VIOLATION"
+    UNKNOWN_CREATIVE = "UNKNOWN_CREATIVE"
 
 
 class AdUrlMissing(Exception):
@@ -43,18 +44,25 @@ class Scraper:
             return ScrapeResult(missing_reason=self.missing_reason_known())
 
     def missing_reason_known(self) -> CreativeMissingReason:
-        no_render_ad = self.driver.find_element_by_class_name("no-renderable-ad")
-        if "Ad preview unavailable" in no_render_ad.text:
-            return CreativeMissingReason.AD_PREVIEW_UNAVAILABLE
-        elif "This ad violated Google's Advertising Policies" in no_render_ad.text:
-            return CreativeMissingReason.AD_POLICY_VIOLATION
-        else:
-            raise UnknownMissingReason()
+        try:
+            no_render_ad = self.driver.find_element_by_class_name("no-renderable-ad")
+            if "Ad preview unavailable" in no_render_ad.text:
+                return CreativeMissingReason.AD_PREVIEW_UNAVAILABLE
+            elif "This ad violated Google's Advertising Policies" in no_render_ad.text:
+                return CreativeMissingReason.AD_POLICY_VIOLATION
+        except NoSuchElementException:
+            report = self.driver.find_element_by_tag_name("report-section")
+            if "There was a problem loading the content you requested" in report.text:
+                return CreativeMissingReason.UNKNOWN_CREATIVE
+        raise UnknownMissingReason()
 
     def locate_ad_url(self) -> str:
         # wait for creative embed to load
         wait = WebDriverWait(self.driver, 10)
-        viz = wait.until(ec.presence_of_element_located((By.CLASS_NAME, "visualization")))
+        try:
+            viz = wait.until(ec.presence_of_element_located((By.CLASS_NAME, "visualization")))
+        except TimeoutException:
+            raise AdUrlMissing()
 
         # Standard YouTube embed
         try:
