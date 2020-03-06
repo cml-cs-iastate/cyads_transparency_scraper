@@ -74,8 +74,6 @@ class Tag(models.Model):
 class VideoMeta(models.Model):
     # A combination of (hostname, unique parts of url)
     base_identifier = models.CharField(max_length=255, null=False, unique=True)
-    # Sample url which references same video file.
-    sample_url = models.TextField(null=False)
     # PK for looking up where the video file is stored on our server
     AdFile_ID = models.ForeignKey(AdFile, null=False, on_delete=models.PROTECT)
 
@@ -83,9 +81,9 @@ class VideoMeta(models.Model):
 
     # Youtube specific
     title = models.TextField(null=True)
-    category = models.ForeignKey(Category, on_delete=models.PROTECT)
-    channel = models.ForeignKey(Channel, on_delete=models.PROTECT)
-    description = models.TextField(default='')
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, null=True)
+    channel = models.ForeignKey(Channel, on_delete=models.PROTECT, null=True)
+    description = models.TextField(null=True)
     tags = models.ManyToManyField(Tag, through='YTTag')
 
 
@@ -105,6 +103,7 @@ class CreativeInfo(models.Model):
     missing = models.BooleanField(null=True)
     missing_reason = models.CharField(null=True, max_length=64)
     checked = models.BooleanField(default=False, null=False)
+    meta_extracted = models.BooleanField(default=False, null=False)
     meta_id = models.ForeignKey(VideoMeta, null=True, on_delete=models.PROTECT)
 
     class Meta:
