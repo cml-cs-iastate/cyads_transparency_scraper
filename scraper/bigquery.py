@@ -47,9 +47,25 @@ def get_unseen_creatives(latest_first_seen_timestamp_in_db: datetime.datetime):
     # Next, we will still check if we already have the creative downloaded, the above query restriction cuts down on
     # the amount of creatives needing to be checked.
 
+    query = """
+    SELECT ad_id, ad_url, advertiser_id, first_served_timestamp
+     FROM `bigquery-public-data.google_political_ads.creative_stats`
+     WHERE ad_type='video'
+     AND first_served_timestamp >= @previous_scrape_latest_first_served_timestamp
+     ORDER BY first_served_timestamp DESC
+     LIMIT 100;
+    """
 
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("previous_scrape_latest_first_served_timestamp", "INT64", latest_first_seen_timestamp_in_db),
+        ]
+    )
 
-
+    query_job = client.query(query, job_config=job_config)  # Make an API request.
+    for row in query_job:
+        print("{}: \t{}".format(row.ad_id, row.ad_url))
+        break
 
     # Store the last modified table timestamp after completion of all
     # Store the first_served_timestamp after completion of all
