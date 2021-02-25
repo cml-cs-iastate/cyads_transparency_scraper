@@ -7,7 +7,7 @@ from .download_helper import extract_base_identifier, video_download
 from time import sleep
 from .scraper import Scraper, CreativeMissingReason, UnknownMissingReason, ScrapeResult
 from selenium import webdriver
-from .models import CreativeInfo, VideoMeta, AdType, AdFile, CollectionType, Channel, Category, Tag
+from .old_models import CreativeInfo, VideoMeta, AdType, AdFile, CollectionType, Channel, Category, Tag
 from selenium.common.exceptions import TimeoutException
 import youtube_dl
 

@@ -1,0 +1,7 @@
+celery[redis]
+django
+redis
+sentry-sdk
+google-cloud-pubsub
+google-cloud-bigquery
+selenium==3.141.0

@@ -9,7 +9,7 @@ from .tasks import test_exception
 from .tasks import test_chrome_spawn, scrape_new_urls
 
 from google.cloud import bigquery
-from .models import CreativeInfo
+from .old_models import CreativeInfo
 
 
 def index(request):
