@@ -53,7 +53,6 @@ def get_unseen_creatives(latest_first_seen_timestamp_in_db: datetime.datetime):
      WHERE ad_type='video'
      AND first_served_timestamp >= @previous_scrape_latest_first_served_timestamp
      ORDER BY first_served_timestamp DESC
-     LIMIT 100;
     """
 
     job_config = bigquery.QueryJobConfig(
