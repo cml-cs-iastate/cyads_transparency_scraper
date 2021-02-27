@@ -1,11 +1,11 @@
 from time import sleep
 
+import requests
 from google.cloud import pubsub_v1
 
 import logging
 import os
 
-from bigquery import enrich_transparency_report
 
 
 class GTRSubscriber:
@@ -20,7 +20,6 @@ class GTRSubscriber:
         subscriber = pubsub_v1.SubscriberClient()
         subscription_name = f'projects/{self.project_id}/subscriptions/{self.subscription}'
 
-
         try:
             future = subscriber.subscribe(subscription_name, self.callback)
             self.logger.info(f"subscribed to subscription - {subscription_name}")
@@ -32,11 +31,14 @@ class GTRSubscriber:
     def callback(self, message):
         self.logger.info("GTR - Received the message : ")
         print(message)
-        self.logger.info(message.data)
+        if message.attributes["type"] == "CHECK_GTR_FOR_UPDATE":
 
-        print("scrapping table")
-        message.ack()
-        enrich_transparency_report()
+            print("scrapping table")
+            message.ack()
+
+            # notify django
+            response = requests.post("http://127.0.0.1:8000/scraper/update_gtr")
+            print(f"update endpoint response: {response} - text: {response.text}")
 
 
 environ = "development"

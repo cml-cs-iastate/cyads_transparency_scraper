@@ -1,24 +1,27 @@
 import os
 
-from celery import shared_task, app
+from huey.contrib.djhuey import task
+
 from django.db import transaction
 from .download_helper import extract_base_identifier, video_download
 
 from time import sleep
 from .scraper import Scraper, CreativeMissingReason, UnknownMissingReason, ScrapeResult
 from selenium import webdriver
-from .old_models import CreativeInfo, VideoMeta, AdType, AdFile, CollectionType, Channel, Category, Tag
+from .models import CreativeInfo
 from selenium.common.exceptions import TimeoutException
 import youtube_dl
+import logging
+logger = logging.getLogger(__name__)
 
 
-@shared_task
+@task()
 def hello():
     print("Hello there!")
     return "done 1"
 
 
-@shared_task
+@task()
 def test_double(num: int) -> int:
     sleep(1)
     result = num * 2
@@ -26,7 +29,7 @@ def test_double(num: int) -> int:
     return result
 
 
-@shared_task(bind=True)
+@task()
 def test_progress(self, num: int, times: int):
     result = 1
     for i in range(times):
@@ -39,12 +42,12 @@ def test_progress(self, num: int, times: int):
     return result
 
 
-@shared_task
+@task()
 def test_exception(number):
     raise Exception(f"exc number={number}")
 
 
-@shared_task
+@task()
 def test_chrome_spawn():
     options = webdriver.ChromeOptions()
     options.add_argument("--remote-debugging-port=4444")
@@ -55,39 +58,45 @@ def test_chrome_spawn():
     chrome.quit()
 
 
-@shared_task
 def scrape_new_urls():
-    chrome = webdriver.Chrome()
+    from selenium.webdriver.chrome.options import Options
+    options = Options()
+    options.add_argument('--headless')
+    options.add_argument("--enable-low-end-device-mode")
+
+    chrome = webdriver.Chrome(options=options)
     scraper = Scraper(driver=chrome)
     creative: CreativeInfo
-    for creative in CreativeInfo.objects.filter(checked=False):
-        print(f"scraping: {creative=}, {creative.ad_url=}")
+    for creative in CreativeInfo.objects.filter(scraped=False):
+        logger.info(f"scraping: {creative=}, {creative.transparency_url=}")
         try:
-            embed_ad_url_result: ScrapeResult = scraper.scrape_url(creative.ad_url)
+            embed_ad_url_result: ScrapeResult = scraper.scrape_url(creative.transparency_url)
             if not embed_ad_url_result.missing:
                 assert embed_ad_url_result.actual_url
-                creative.embed_url = embed_ad_url_result.actual_url
-                creative.checked = True
-                creative.missing = False
+                creative.direct_ad_url = embed_ad_url_result.actual_url
+                creative.was_available = True
                 creative.save()
+                logger.info(f"success - scraped: {creative=}, direct={creative.direct_ad_url}")
             else:
                 assert embed_ad_url_result.missing
                 assert isinstance(embed_ad_url_result.missing_reason, CreativeMissingReason)
                 reason = embed_ad_url_result.missing_reason
-                print(f"MISSING: reason: {reason.name}, ad_url={creative.ad_url}")
-                creative.missing_reason = reason.value
-                creative.missing = True
-                creative.checked = True
-                creative.save()
+                logger.info(f"MISSING: reason: {reason.name}, transp_url={creative.transparency_url}")
+                creative.processed = True
+                creative.was_available = False
+            creative.scraped = True
+            creative.save()
         except UnknownMissingReason as e:
             # for dev: pass for speed!
+            logger.info(f"Unknown missing reason {creative=}, t_url={creative.transparency_url}")
             continue
             raise e
+    all_processed = CreativeInfo.objects.filter(processed=False).count() == 0
+    assert all_processed
+    creative.objects.order_by("~first_served_timestamp").first()
 
-        print(f"{creative.ad_url=}, {creative.embed_url=}")
 
-
-@shared_task
+@task()
 def download_creatives():
     for creativeinfo in CreativeInfo.objects.filter(missing=False):
         with transaction.atomic():
@@ -148,4 +157,3 @@ def download_creatives():
                 creativeinfo.meta_id = video_meta
                 creativeinfo.meta_extracted = True
                 creativeinfo.save()
-

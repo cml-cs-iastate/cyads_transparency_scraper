@@ -1,4 +1,3 @@
-from __future__ import absolute_import, unicode_literals
 
 import os
 
@@ -24,7 +23,7 @@ app = Celery('cyads_transparency_web')
 #   should have a `CELERY_` prefix.
 app.config_from_object('django.conf:settings', namespace='CELERY')
 
-app.conf.broker_url = 'redis://localhost:6379/0'
+#app.conf.broker_url = 'redis://localhost:6379/0'
 
 
 # Load task modules from all registered Django app configs.

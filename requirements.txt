@@ -1,7 +1,7 @@
-celery[redis]
-django
+django~=3.0.7
 redis
 sentry-sdk
 google-cloud-pubsub
 google-cloud-bigquery
 selenium==3.141.0
+huey~=2.3.0

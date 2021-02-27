@@ -3,21 +3,24 @@ from django.shortcuts import render
 # Create your views here.
 
 from django.http import HttpResponse
-from .tasks import test_double as celery_test_double
-from .tasks import test_progress as celery_test_progress
-from .tasks import test_exception
-from .tasks import test_chrome_spawn, scrape_new_urls
 
 from google.cloud import bigquery
-from .old_models import CreativeInfo
 
+from .bigquery import enrich_transparency_report
+from .models import CreativeInfo
+import huey
 
 def index(request):
     return HttpResponse("Hello, world. You're at the scraper index.")
 
 
+def update_transparency(request):
+    task_enrich = enrich_transparency_report()
+    task_enrich(blocking=False)
+    return HttpResponse("beginning to update transparency report", status=201)
+
+
 def endpoint_scrape_new_urls(request):
-    scrape_new_urls.delay()
     return HttpResponse("beginning to scrape urls")
 
 
@@ -30,7 +33,7 @@ def pull_bigquery_latest_creatives(request):
         ad_id = row["ad_id"]
         ad_url = row["ad_url"]
         advertiser_id = row["advertiser_id"]
-        creative_info, created = CreativeInfo.objects.get_or_create(ad_id=ad_id, advertiser_id=advertiser_id, ad_url=ad_url)
+        creative_info, created = CreativeInfo.objects.get_or_create(ad_id=ad_id, advertiser_id=advertiser_id, direct_ad_url=ad_url)
         creative_info: CreativeInfo
         creative_info.save()
         print(f'num={index}, {ad_id=}, {ad_url=}')
@@ -40,8 +43,6 @@ def pull_bigquery_latest_creatives(request):
 
 
 def test_double(request, num):
-    celery_test_double.delay(num=num)
-    celery_test_progress.delay(num=num, times=10)
     return HttpResponse(f"{num} is awaiting doubling")
 
 
@@ -54,5 +55,4 @@ def trigger_error(request):
 
 
 def test_chrome_spawn_url(request):
-    test_chrome_spawn.delay()
     return HttpResponse("Spawned chrome instance on port 4444")
