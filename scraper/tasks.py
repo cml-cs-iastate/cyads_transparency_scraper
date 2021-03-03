@@ -67,6 +67,13 @@ def scrape_new_urls():
 
     chrome = webdriver.Chrome(options=options)
     scraper = Scraper(driver=chrome)
+
+    new_creatives_count = CreativeInfo.objects.filter(scraped=False).count()
+    if new_creatives_count == 0:
+        print("zero new creatives to scrape. An error for now")
+    else:
+        print(f"going to scrape {new_creatives_count} creatives")
+
     creative: CreativeInfo
     for creative in CreativeInfo.objects.filter(scraped=False):
         logger.info(f"scraping: {creative=}, {creative.transparency_url=}")
@@ -95,7 +102,7 @@ def scrape_new_urls():
             raise e
     all_scraped = CreativeInfo.objects.filter(scraped=False).count() == 0
     assert all_scraped
-    creative.objects.order_by("~first_served_timestamp").first()
+#    CreativeInfo.objects.order_by("~first_served_timestamp").first()
 
 
 @task()

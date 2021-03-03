@@ -81,8 +81,8 @@ def get_unseen_creatives(latest_first_seen_timestamp_in_db: datetime.datetime = 
     query_job: QueryJob = client.query(query, job_config=job_config)  # Make an API request.
     logger.info("running query")
 
+    creatives_to_insert = []
     for row_num, row in enumerate(query_job, start=1):
-        creatives_to_insert = []
         if row_num % 1000 == 0:
             print(f"read {row_num} rows")
         creative = CreativeInfo()
@@ -95,6 +95,7 @@ def get_unseen_creatives(latest_first_seen_timestamp_in_db: datetime.datetime = 
     print("Starting to save rows to DB")
     CreativeInfo.objects.bulk_create(creatives_to_insert, ignore_conflicts=True)
     print(f"Finished saving {row_num} rows")
+    assert CreativeInfo.objects.count() > 100
 
     # Store the last modified table timestamp after completion of all
     # Store the first_served_timestamp after completion of all
