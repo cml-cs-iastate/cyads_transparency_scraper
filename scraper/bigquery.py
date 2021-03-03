@@ -40,36 +40,14 @@ def enrich_transparency_report():
 
     # creative_table_public: Table = client.get_table(creative_table_id)
 
-
     # Grab the latest report
     get_unseen_creatives()
     scrape_new_urls()
 
 
-def get_unseen_creatives(latest_first_seen_timestamp_in_db: datetime.datetime = datetime.datetime.min,
-                         use_csv: bool = True):
-    import csv
+def get_unseen_creatives(latest_first_seen_timestamp_in_db: datetime.datetime = datetime.datetime.min,):
     from .models import CreativeInfo
-    if use_csv:
-        with open("./creatives.csv") as creative_csv:
-            reader = csv.DictReader(creative_csv)
-            count =0
-            creatives_to_insert = []
-            for row in reader:
-                if count % 1000 == 0:
-                    print(f"built {count} rows")
-                creative = CreativeInfo()
-                creative.ad_id = row["ad_id"]
-                creative.advertiser_id = row["advertiser_id"]
-                creative.transparency_url = row["ad_url"]
-                creative.first_served_timestamp = row["first_served_timestamp"]
-                creatives_to_insert.append(creative)
-                count += 1
-            print(f"Finished building {count} rows")
-            CreativeInfo.objects.bulk_create(creatives_to_insert, ignore_conflicts=True)
-    print("finished saving")
-    return
-    print("passed the return")
+
     # To limit results to only creatives that were added since the last scrape, this query only returns ads
     # that have a first served timestamp >= the previous updates latest first_served_timestamp
     #
@@ -84,9 +62,10 @@ def get_unseen_creatives(latest_first_seen_timestamp_in_db: datetime.datetime = 
     # the amount of creatives needing to be checked.
 
     query = """
-    SELECT ad_id, ad_url, advertiser_id, first_served_timestamp
+    SELECT ad_id, ad_url, regions, advertiser_id, first_served_timestamp
      FROM `bigquery-public-data.google_political_ads.creative_stats`
      WHERE ad_type='Video'
+     AND REGEXP_CONTAINS(regions, r"US")
      AND first_served_timestamp >= @previous_scrape_latest_first_served_timestamp
      ORDER BY first_served_timestamp DESC;
     """
@@ -97,19 +76,24 @@ def get_unseen_creatives(latest_first_seen_timestamp_in_db: datetime.datetime = 
                                           latest_first_seen_timestamp_in_db),
         ]
     )
-    import csv
-    fields = ["ad_id", "transparency_url", "advertiser_id", "first_served_timestamp"]
 
     query_job: QueryJob = client.query(query, job_config=job_config)  # Make an API request.
     logger.info("running query")
-    with open("creatives.csv", mode="w", encoding="utf8") as csvfile:
-        csvwriter = csv.writer(csvfile)
-        csvwriter.writerow(fields)
 
-        for index, row in enumerate(query_job):
-            csvwriter.writerow([row.ad_id, row.ad_url, row.advertiser_id, row.first_served_timestamp])
-            if index % 100 == 0:
-                print(f"saved {index} rows")
+    for row_num, row in enumerate(query_job, start=1):
+        creatives_to_insert = []
+        if row_num % 1000 == 0:
+            print(f"read {row_num} rows")
+        creative = CreativeInfo()
+        creative.ad_id = row["ad_id"]
+        creative.advertiser_id = row["advertiser_id"]
+        creative.transparency_url = row["ad_url"]
+        creative.first_served_timestamp = row["first_served_timestamp"]
+        creative.regions = row["regions"]
+        creatives_to_insert.append(creative)
+    print("Starting to save rows to DB")
+    CreativeInfo.objects.bulk_create(creatives_to_insert, ignore_conflicts=True)
+    print(f"Finished saving {row_num} rows")
 
     # Store the last modified table timestamp after completion of all
     # Store the first_served_timestamp after completion of all

@@ -31,7 +31,8 @@ class CreativeInfo(models.Model):
     direct_ad_url = models.TextField(null=True)
     scraped = models.BooleanField(null=False, default=False)
     was_available = models.BooleanField(null=True)
-    unable_to_scrape_reason=models.CharField(null=True)
+    regions = models.CharField(null=False, max_length=128)
+    unable_to_scrape_reason=models.CharField(null=True, max_length=64)
     processed = models.BooleanField(default=False, null=False)
     AdFile_ID = models.ForeignKey(AdFile, null=True, on_delete=models.PROTECT)
 

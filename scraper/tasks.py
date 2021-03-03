@@ -84,6 +84,7 @@ def scrape_new_urls():
                 logger.info(f"MISSING: reason: {reason.name}, transp_url={creative.transparency_url}")
                 creative.processed = True
                 creative.was_available = False
+                creative.unable_to_scrape_reason = reason.value
             creative.scraped = True
             creative.save()
         except UnknownMissingReason as e:
