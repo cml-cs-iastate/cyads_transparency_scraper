@@ -12,6 +12,7 @@ from .models import CreativeInfo
 from selenium.common.exceptions import TimeoutException
 import youtube_dl
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -92,8 +93,8 @@ def scrape_new_urls():
             logger.info(f"Unknown missing reason {creative=}, t_url={creative.transparency_url}")
             continue
             raise e
-    all_processed = CreativeInfo.objects.filter(processed=False).count() == 0
-    assert all_processed
+    all_scraped = CreativeInfo.objects.filter(scraped=False).count() == 0
+    assert all_scraped
     creative.objects.order_by("~first_served_timestamp").first()
 
 

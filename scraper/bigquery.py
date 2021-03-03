@@ -43,6 +43,7 @@ def enrich_transparency_report():
     # Grab the latest report
     get_unseen_creatives()
     scrape_new_urls()
+    raise Exception("Implement Download functionality next")
 
 
 def get_unseen_creatives(latest_first_seen_timestamp_in_db: datetime.datetime = datetime.datetime.min,):
