@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 import os
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
+from huey import SqliteHuey
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -87,13 +89,16 @@ TEMPLATES = [
 WSGI_APPLICATION = 'cyads_transparency_web.wsgi.application'
 
 
+HUEY = SqliteHuey('transparency', filename='huey.sqlite3')
+
+
 # Database
 # https://docs.djangoproject.com/en/3.0/ref/settings/#databases
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'transparency.sqlite3'),
+        'NAME': os.environ["TRANSPARENCY_DB_FILE"],
     }
 }
 

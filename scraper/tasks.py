@@ -1,14 +1,17 @@
 import os
+from pathlib import Path
 
 from huey.contrib.djhuey import task
 
 from django.db import transaction
+from youtube_dl import YoutubeDL
+
 from .download_helper import extract_base_identifier, video_download
 
 from time import sleep
 from .scraper import Scraper, CreativeMissingReason, UnknownMissingReason, ScrapeResult
 from selenium import webdriver
-from .models import CreativeInfo
+from .models import CreativeInfo, AdFile
 from selenium.common.exceptions import TimeoutException
 import youtube_dl
 import logging
@@ -102,7 +105,59 @@ def scrape_new_urls():
             raise e
     all_scraped = CreativeInfo.objects.filter(scraped=False).count() == 0
     assert all_scraped
-#    CreativeInfo.objects.order_by("~first_served_timestamp").first()
+
+
+def download_videos():
+    print("starting video download")
+    download_dir = Path(os.environ["AD_ARCHIVE_GTR_DIR"]).as_posix()
+    youtube_creatives = CreativeInfo.objects.filter(direct_ad_url__contains="youtube.com", scraped=True, processed=False)
+
+    ydl_opts = {
+        # Only download mp4 Videos
+        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
+        'merge_output_format': 'mp4',
+        "outtmpl": Path(download_dir).as_posix() + '/%(id)s.%(ext)s',
+    }
+
+    for creative in youtube_creatives:
+        try:
+
+            print(f"scrapping creative {creative.direct_ad_url}")
+            file_stem = youtube_dl.extractor.YoutubeIE.extract_id(creative.direct_ad_url)
+            ext = ".mp4"
+            filename = f"{file_stem}{ext}"
+
+            ad_file, created = AdFile.objects.get_or_create(ad_filepath=filename)
+            if created:
+                # don't download video again
+                creative.processed = True
+                creative.was_available = True
+                creative.AdFile = ad_file
+                creative.save()
+                print(f"Already downloaded ad. Skip downloading. {creative.direct_ad_url}")
+                continue
+
+            with YoutubeDL(ydl_opts) as ytd:
+                ytd.download([creative.direct_ad_url])
+
+            assert Path(download_dir).joinpath(filename).exists()
+            ad_file = AdFile()
+            ad_file.ad_filepath = filename
+            creative.was_available = True
+            creative.processed = True
+            creative.AdFile = ad_file
+            creative.save()
+        except youtube_dl.utils.DownloadError as exc:
+            print(exc.exc_info)
+            if "Video unavailable" in exc.args[0]:
+                creative.was_available = False
+                creative.processed = True
+                creative.save()
+                print(f"ad unavailable from youtube - {creative.direct_ad_url}")
+                print("skipped processing")
+                continue
+            else:
+                raise exc
 
 
 @task()
