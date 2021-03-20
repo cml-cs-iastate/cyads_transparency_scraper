@@ -20,46 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 @task()
-def hello():
-    print("Hello there!")
-    return "done 1"
-
-
-@task()
-def test_double(num: int) -> int:
-    sleep(1)
-    result = num * 2
-    print(result)
-    return result
-
-
-@task()
-def test_progress(self, num: int, times: int):
-    result = 1
-    for i in range(times):
-        result *= num
-        self.update_state(state="PROGRESS", meta={'iteration': i, 'inter_result': result})
-        with self.app.events.default_dispatcher() as dispatcher:
-            dispatcher.send('test-progress-event', event="PROGRESS", iteration=i, inter_result=result)
-            print("in dispatch")
-        sleep(2)
-    return result
-
-
-@task()
 def test_exception(number):
     raise Exception(f"exc number={number}")
-
-
-@task()
-def test_chrome_spawn():
-    options = webdriver.ChromeOptions()
-    options.add_argument("--remote-debugging-port=4444")
-    chrome = webdriver.Chrome(options=options)
-    chrome.get(
-        "https://transparencyreport.google.com/political-ads/advertiser/AR458000056721604608/creative/CR500897228001378304")
-    sleep(120)
-    chrome.quit()
 
 
 def scrape_new_urls():
@@ -128,11 +90,11 @@ def download_videos():
             filename = f"{file_stem}{ext}"
 
             ad_file, created = AdFile.objects.get_or_create(ad_filepath=filename)
-            if created:
+            if not created:
                 # don't download video again
                 creative.processed = True
                 creative.was_available = True
-                creative.AdFile = ad_file
+                creative.AdFile_ID = ad_file
                 creative.save()
                 print(f"Already downloaded ad. Skip downloading. {creative.direct_ad_url}")
                 continue
@@ -151,11 +113,12 @@ def download_videos():
                 ytd.download([creative.direct_ad_url])
 
             assert Path(download_dir).joinpath(filename).exists()
-            ad_file = AdFile()
+
             ad_file.ad_filepath = filename
+            ad_file.save()
             creative.was_available = True
             creative.processed = True
-            creative.AdFile = ad_file
+            creative.AdFile_ID = ad_file
             creative.save()
         except youtube_dl.utils.DownloadError as exc:
             print(exc.exc_info)

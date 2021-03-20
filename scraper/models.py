@@ -15,7 +15,7 @@ class AdType(Enum):
 # Copied from CyAdsProcess models. Avoids restructuring CyAdsProcessor to get rid of pubsub placement in urls file.
 class AdFile(models.Model):
     id = models.AutoField(db_column="AdFile_ID", primary_key=True)
-    ad_filepath = models.TextField(null=True)
+    ad_filepath = models.TextField(null=False, unique=True)
 
     def __repr__(self):
         return (f'{self.__class__.__name__}('
@@ -34,7 +34,7 @@ class CreativeInfo(models.Model):
     regions = models.CharField(null=False, max_length=128)
     unable_to_scrape_reason=models.CharField(null=True, max_length=64)
     processed = models.BooleanField(default=False, null=False)
-    AdFile_ID = models.ForeignKey(AdFile, null=True, on_delete=models.PROTECT)
+    AdFile_ID = models.ForeignKey(AdFile, db_column='AdFile_ID_id', null=True, on_delete=models.PROTECT)
 
     class Meta:
         unique_together = ('ad_id', 'advertiser_id',)
