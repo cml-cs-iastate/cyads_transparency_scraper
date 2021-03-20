@@ -122,7 +122,7 @@ def download_videos():
     for creative in youtube_creatives:
         try:
 
-            print(f"scrapping creative {creative.direct_ad_url}")
+            print(f"downloading creative {creative.direct_ad_url}")
             file_stem = youtube_dl.extractor.YoutubeIE.extract_id(creative.direct_ad_url)
             ext = ".mp4"
             filename = f"{file_stem}{ext}"
@@ -138,6 +138,16 @@ def download_videos():
                 continue
 
             with YoutubeDL(ydl_opts) as ytd:
+                info = ytd.extract_info(creative.direct_ad_url, download=False)
+                if info["duration"] > 60*5:
+                    # skip downloading if video is too long
+                    creative.processed = True
+                    creative.was_available = True
+                    creative.unable_to_scrape_reason = "video length past cutoff "
+                    creative.save()
+                    print(f"skipping video - past cutoff length, {creative.direct_ad_url}")
+                    continue
+
                 ytd.download([creative.direct_ad_url])
 
             assert Path(download_dir).joinpath(filename).exists()
@@ -157,7 +167,9 @@ def download_videos():
                 print("skipped processing")
                 continue
             else:
-                raise exc
+                # Skip unhandled download reason and get as many videos as possible
+                print(exc)
+                continue
 
 
 @task()
